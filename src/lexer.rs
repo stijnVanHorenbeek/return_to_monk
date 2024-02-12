@@ -1,6 +1,6 @@
 use crate::token::{lookup_ident, Token};
 
-struct Lexer<'a> {
+pub struct Lexer<'a> {
     input: &'a str,
     input_length: usize,
     position: usize,
@@ -39,7 +39,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
             '=' => {
