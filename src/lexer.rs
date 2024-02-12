@@ -33,11 +33,17 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
         let token = match self.ch {
             '=' => Token::ASSIGN,
+            '+' => Token::PLUS,
+            '-' => Token::MINUS,
+            '!' => Token::BANG,
+            '*' => Token::ASTERISK,
+            '/' => Token::SLASH,
+            '<' => Token::LT,
+            '>' => Token::GT,
+            ',' => Token::COMMA,
             ';' => Token::SEMICOLON,
             '(' => Token::LPAREN,
             ')' => Token::RPAREN,
-            ',' => Token::COMMA,
-            '+' => Token::PLUS,
             '{' => Token::LBRACE,
             '}' => Token::RBRACE,
             '\0' => Token::EOF,
@@ -125,7 +131,9 @@ let ten = 10;
 let add = fn(x, y) {
   x + y;
 };
-let result = add(five, ten);";
+let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;";
 
         let tests = vec![
             Token::LET,
@@ -163,6 +171,18 @@ let result = add(five, ten);";
             Token::COMMA,
             Token::IDENT("ten".into()),
             Token::RPAREN,
+            Token::SEMICOLON,
+            Token::BANG,
+            Token::MINUS,
+            Token::SLASH,
+            Token::ASTERISK,
+            Token::INT(5),
+            Token::SEMICOLON,
+            Token::INT(5),
+            Token::LT,
+            Token::INT(10),
+            Token::GT,
+            Token::INT(5),
             Token::SEMICOLON,
             Token::EOF,
         ];

@@ -41,7 +41,7 @@ cargo build
 // Example of language syntax
 let foo = [1, 2, 3, 4, 5];
 foo[0] // => 1
-let bar = { "name": "stijn", "location": "outer space" }
+let bar = { "name": "stijn", "location": "outer space" };
 bar["name"] // => "stijn"
 
 let five = 5;
