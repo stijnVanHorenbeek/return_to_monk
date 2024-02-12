@@ -25,12 +25,22 @@ pub enum Token {
     // Keywords
     FUNCTION,
     LET,
+    IF,
+    ELSE,
+    TRUE,
+    FALSE,
+    RETURN,
 }
 
 pub fn lookup_ident(ident: &str) -> Token {
     match ident {
         "fn" => Token::FUNCTION,
         "let" => Token::LET,
+        "if" => Token::IF,
+        "else" => Token::ELSE,
+        "true" => Token::TRUE,
+        "false" => Token::FALSE,
+        "return" => Token::RETURN,
         _ => Token::IDENT(ident.into()),
     }
 }
@@ -58,6 +68,11 @@ impl Display for Token {
             Token::RBRACE => write!(f, "RBRACE"),
             Token::FUNCTION => write!(f, "FUNCTION"),
             Token::LET => write!(f, "LET"),
+            Token::IF => write!(f, "IF"),
+            Token::ELSE => write!(f, "ELSE"),
+            Token::TRUE => write!(f, "TRUE"),
+            Token::FALSE => write!(f, "FALSE"),
+            Token::RETURN => write!(f, "RETURN"),
         }
     }
 }
