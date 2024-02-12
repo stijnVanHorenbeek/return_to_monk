@@ -2,6 +2,7 @@ use crate::token::{lookup_ident, Token};
 
 struct Lexer<'a> {
     input: &'a str,
+    input_length: usize,
     position: usize,
     read_position: usize,
     ch: char,
@@ -11,6 +12,7 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Lexer {
         let mut lexer = Lexer {
             input,
+            input_length: input.len(),
             position: 0,
             read_position: 0,
             ch: '\0',
@@ -20,7 +22,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
+        if self.read_position >= self.input_length {
             self.ch = '\0';
         } else {
             self.ch = self.input.chars().nth(self.read_position).unwrap();
@@ -29,13 +31,35 @@ impl<'a> Lexer<'a> {
         self.read_position += 1;
     }
 
+    fn peek_char(&self) -> char {
+        if self.read_position >= self.input_length {
+            '\0'
+        } else {
+            self.input.chars().nth(self.read_position).unwrap()
+        }
+    }
+
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
-            '=' => Token::ASSIGN,
+            '=' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::EQ
+                } else {
+                    Token::ASSIGN
+                }
+            }
             '+' => Token::PLUS,
             '-' => Token::MINUS,
-            '!' => Token::BANG,
+            '!' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::NOT_EQ
+                } else {
+                    Token::BANG
+                }
+            }
             '*' => Token::ASTERISK,
             '/' => Token::SLASH,
             '<' => Token::LT,
@@ -138,7 +162,9 @@ if (5 < 10) {
   return true;
 } else {
   return false;
-}";
+}
+10 == 10;
+10 != 9;";
 
         let tests = vec![
             Token::LET,
@@ -206,6 +232,14 @@ if (5 < 10) {
             Token::FALSE,
             Token::SEMICOLON,
             Token::RBRACE,
+            Token::INT(10),
+            Token::EQ,
+            Token::INT(10),
+            Token::SEMICOLON,
+            Token::INT(10),
+            Token::NOT_EQ,
+            Token::INT(9),
+            Token::SEMICOLON,
             Token::EOF,
         ];
 

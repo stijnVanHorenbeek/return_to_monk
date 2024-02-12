@@ -22,6 +22,8 @@ pub enum Token {
     RPAREN,
     LBRACE,
     RBRACE,
+    EQ,
+    NOT_EQ,
     // Keywords
     FUNCTION,
     LET,
@@ -66,6 +68,8 @@ impl Display for Token {
             Token::RPAREN => write!(f, "RPAREN"),
             Token::LBRACE => write!(f, "LBRACE"),
             Token::RBRACE => write!(f, "RBRACE"),
+            Token::EQ => write!(f, "EQ"),
+            Token::NOT_EQ => write!(f, "NOT_EQ"),
             Token::FUNCTION => write!(f, "FUNCTION"),
             Token::LET => write!(f, "LET"),
             Token::IF => write!(f, "IF"),
