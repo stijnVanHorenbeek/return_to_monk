@@ -380,7 +380,7 @@ return 993322;"#;
                     Statement::ExpressionStatement(exp) => match exp {
                         Expression::Prefix(p, r) => {
                             assert_eq!(p.to_string(), prefix);
-                            assert_eq!(is_integer_literal(r, int), true);
+                            assert_eq!(is_literal_expression(r, &int.to_string()), true);
                         }
                         _ => panic!("Expected PrefixExpression, got {:?}", exp),
                     },
@@ -414,14 +414,12 @@ return 993322;"#;
 
             for statement in &program.statements {
                 match statement {
-                    Statement::ExpressionStatement(exp) => match exp {
-                        Expression::Infix(o, l, r) => {
-                            assert_eq!(o.to_string(), op);
-                            assert_eq!(is_integer_literal(l, left), true);
-                            assert_eq!(is_integer_literal(r, right), true);
-                        }
-                        _ => panic!("Expected InfixExpression, got {:?}", exp),
-                    },
+                    Statement::ExpressionStatement(exp) => {
+                        assert_eq!(
+                            is_infix_expression(exp, &left.to_string(), op, &right.to_string()),
+                            true
+                        );
+                    }
                     _ => panic!("Expected ExpressionStatement, got {:?}", statement),
                 }
             }
@@ -462,6 +460,32 @@ return 993322;"#;
     fn is_integer_literal(exp: &Expression, value: isize) -> bool {
         match exp {
             Expression::IntegerLiteral(i) => *i == value,
+            _ => false,
+        }
+    }
+
+    fn is_identifier(exp: &Expression, value: &str) -> bool {
+        match exp {
+            Expression::Identifier(s) => s == value,
+            _ => false,
+        }
+    }
+
+    fn is_literal_expression(exp: &Expression, expected: &str) -> bool {
+        match exp {
+            Expression::IntegerLiteral(_) => is_integer_literal(exp, expected.parse().unwrap()),
+            Expression::Identifier(_) => is_identifier(exp, expected),
+            _ => false,
+        }
+    }
+
+    fn is_infix_expression(exp: &Expression, left: &str, op: &str, right: &str) -> bool {
+        match exp {
+            Expression::Infix(o, l, r) => {
+                is_literal_expression(l, left)
+                    && is_literal_expression(r, right)
+                    && o.to_string() == op
+            }
             _ => false,
         }
     }
