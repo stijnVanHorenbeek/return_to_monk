@@ -4,7 +4,7 @@ This project is an implementation of an interpreted language, based on the one b
 
 ## Features
 
-- [ ] **Lexer**: Tokenizes input to prepare for parsing.
+- [x] **Lexer**: Tokenizes input to prepare for parsing.
 - [ ] **Parser**: Analyzes the structure of the code to build an Abstract Syntax Tree (AST).
 - [ ] **Evaluator**: Processes the AST to execute the program.
 - [ ] **REPL**: A Read-Eval-Print Loop for interactive use.
