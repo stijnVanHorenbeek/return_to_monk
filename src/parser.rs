@@ -14,8 +14,9 @@ pub struct Parser<'a> {
 type PrefixParseFn = fn(p: &mut Parser) -> Option<Expression>;
 type InfixParseFn = fn(p: &mut Parser, e: Expression) -> Option<Expression>;
 
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 enum Precedence {
-    LOWEST,
+    LOWEST = 0,
     EQUALS,
     LESSGREATER,
     SUM,
@@ -65,7 +66,17 @@ impl<'a> Parser<'a> {
     // need to inline this to avoid borrow checker issues
     #[inline]
     fn infix_parse_fns(token: &Token) -> Option<InfixParseFn> {
-        None
+        match token {
+            Token::PLUS
+            | Token::MINUS
+            | Token::ASTERISK
+            | Token::SLASH
+            | Token::EQ
+            | Token::NOT_EQ
+            | Token::LT
+            | Token::GT => Some(Parser::parse_infix),
+            _ => None,
+        }
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
@@ -115,10 +126,37 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
-        let left = match Parser::prefix_parse_fns(&self.current_token) {
+        let mut left = match Parser::prefix_parse_fns(&self.current_token) {
             Some(prefix) => prefix(self),
-            None => None,
+            None => {
+                self.errors.push(format!(
+                    "no prefix parse function for {:?}",
+                    self.current_token
+                ));
+                return None;
+            }
         };
+
+        // check if there are any infix parse functions for the current token
+        // and if the precedence of the infix parse function is greater than the
+        // current precedence
+        while !self.peek_token_is(&Token::SEMICOLON) {
+            if precedence as i32 >= self.peek_precedence() as i32 {
+                break;
+            }
+            let infix = match Parser::infix_parse_fns(&self.peek_token) {
+                Some(infix) => infix,
+                None => return left,
+            };
+
+            self.next_token();
+
+            left = match left {
+                Some(left) => infix(self, left),
+                None => return None,
+            };
+        }
+
         left
     }
 
@@ -151,6 +189,49 @@ impl<'a> Parser<'a> {
         };
 
         Some(Expression::Prefix(operator, Box::new(right)))
+    }
+
+    fn parse_infix(p: &mut Parser, left: Expression) -> Option<Expression> {
+        let operator = match &p.current_token {
+            Token::PLUS => Infix::PLUS,
+            Token::MINUS => Infix::MINUS,
+            Token::ASTERISK => Infix::ASTERISK,
+            Token::SLASH => Infix::SLASH,
+            Token::EQ => Infix::EQ,
+            Token::NOT_EQ => Infix::NOT_EQ,
+            Token::LT => Infix::LT,
+            Token::GT => Infix::GT,
+            _ => return None,
+        };
+
+        let precedence = p.current_precedence();
+        p.next_token();
+
+        if let Some(right) = p.parse_expression(precedence) {
+            Some(Expression::Infix(operator, Box::new(left), Box::new(right)))
+        } else {
+            None
+        }
+    }
+
+    fn current_precedence(&self) -> Precedence {
+        match &self.current_token {
+            Token::EQ | Token::NOT_EQ => Precedence::EQUALS,
+            Token::LT | Token::GT => Precedence::LESSGREATER,
+            Token::PLUS | Token::MINUS => Precedence::SUM,
+            Token::ASTERISK | Token::SLASH => Precedence::PRODUCT,
+            _ => Precedence::LOWEST,
+        }
+    }
+
+    fn peek_precedence(&self) -> Precedence {
+        match &self.peek_token {
+            Token::EQ | Token::NOT_EQ => Precedence::EQUALS,
+            Token::LT | Token::GT => Precedence::LESSGREATER,
+            Token::PLUS | Token::MINUS => Precedence::SUM,
+            Token::ASTERISK | Token::SLASH => Precedence::PRODUCT,
+            _ => Precedence::LOWEST,
+        }
     }
 
     fn current_token_is(&self, token: &Token) -> bool {
@@ -280,13 +361,6 @@ return 993322;"#;
         }
     }
 
-    fn is_integer_literal(exp: &Expression, value: isize) -> bool {
-        match exp {
-            Expression::IntegerLiteral(i) => *i == value,
-            _ => false,
-        }
-    }
-
     #[test]
     fn test_prefix_expression() {
         let tests = vec![("!5", "!", 5), ("-15", "-", 15)];
@@ -313,6 +387,82 @@ return 993322;"#;
                     _ => panic!("Expected ExpressionStatement, got {:?}", statement),
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_infix_expression() {
+        let tests = vec![
+            ("5 + 4;", 5, "+", 4),
+            ("5 - 4;", 5, "-", 4),
+            ("5 * 5;", 5, "*", 5),
+            ("5 / 5;", 5, "/", 5),
+            ("5 > 5;", 5, ">", 5),
+            ("5 < 5;", 5, "<", 5),
+            ("5 == 5;", 5, "==", 5),
+            ("5 != 5;", 5, "!=", 5),
+        ];
+
+        for test in tests {
+            let (input, left, op, right) = test;
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert_eq!(program.statements.len(), 1);
+            assert_eq!(parser.errors.len(), 0);
+
+            for statement in &program.statements {
+                match statement {
+                    Statement::ExpressionStatement(exp) => match exp {
+                        Expression::Infix(o, l, r) => {
+                            assert_eq!(o.to_string(), op);
+                            assert_eq!(is_integer_literal(l, left), true);
+                            assert_eq!(is_integer_literal(r, right), true);
+                        }
+                        _ => panic!("Expected InfixExpression, got {:?}", exp),
+                    },
+                    _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests = vec![
+            ("-a * b", "((-a) * b)"),
+            ("!-a", "(!(-a))"),
+            ("a + b + c", "((a + b) + c)"),
+            ("a + b - c", "((a + b) - c)"),
+            ("a * b * c", "((a * b) * c)"),
+            ("a * b / c", "((a * b) / c)"),
+            ("a + b / c", "(a + (b / c))"),
+            ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+            ("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+            ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+            ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+        ];
+
+        for test in tests {
+            let (input, expected) = test;
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert_eq!(parser.errors.len(), 0);
+            assert_eq!(program.to_string(), expected);
+        }
+    }
+
+    fn is_integer_literal(exp: &Expression, value: isize) -> bool {
+        match exp {
+            Expression::IntegerLiteral(i) => *i == value,
+            _ => false,
         }
     }
 }
