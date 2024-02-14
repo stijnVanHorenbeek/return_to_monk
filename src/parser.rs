@@ -58,6 +58,7 @@ impl<'a> Parser<'a> {
         match token {
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
+            Token::LPAREN => Some(Parser::parse_grouped_expression),
             Token::TRUE | Token::FALSE => Some(Parser::parse_boolean_literal),
             Token::BANG | Token::MINUS => Some(Parser::parse_prefix),
             _ => None,
@@ -181,6 +182,17 @@ impl<'a> Parser<'a> {
             Token::FALSE => Some(Expression::BooleanLiteral(false)),
             _ => None,
         }
+    }
+
+    fn parse_grouped_expression(p: &mut Parser) -> Option<Expression> {
+        p.next_token();
+
+        let expression = p.parse_expression(Precedence::LOWEST);
+
+        if !p.expect_peek(&Token::RPAREN) {
+            return None;
+        }
+        expression
     }
 
     fn parse_prefix(p: &mut Parser) -> Option<Expression> {
@@ -539,6 +551,11 @@ return 993322;"#;
             ("true", "true"),
             ("3 < 5 == true", "((3 < 5) == true)"),
             ("3 > 5 == false", "((3 > 5) == false)"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
         ];
 
         for test in tests {
