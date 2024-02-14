@@ -59,6 +59,7 @@ impl Display for Statement {
 pub enum Expression {
     Identifier(String),
     IntegerLiteral(isize),
+    BooleanLiteral(bool),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
 }
@@ -68,6 +69,7 @@ impl Display for Expression {
         match self {
             Expression::Identifier(name) => write!(f, "{}", name),
             Expression::IntegerLiteral(value) => write!(f, "{}", value),
+            Expression::BooleanLiteral(value) => write!(f, "{}", value),
             Expression::Prefix(operator, right) => write!(f, "({}{})", operator, right),
             Expression::Infix(operator, left, right) => {
                 write!(f, "({} {} {})", left, operator, right)
