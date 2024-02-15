@@ -23,13 +23,14 @@ impl Display for Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Statement {
     LetStatement {
         name: String,
         value: Option<Expression>,
     },
     ReturnStatement(Option<Expression>),
+    BlockStatement(Vec<Statement>),
     ExpressionStatement(Expression),
 }
 
@@ -50,6 +51,13 @@ impl Display for Statement {
                     write!(f, "return;")
                 }
             }
+            Statement::BlockStatement(statements) => {
+                let mut result = String::new();
+                for statement in statements {
+                    result.push_str(&format!("{}", statement));
+                }
+                write!(f, "{}", result)
+            }
             Statement::ExpressionStatement(expression) => write!(f, "{}", expression),
         }
     }
@@ -60,6 +68,11 @@ pub enum Expression {
     Identifier(String),
     IntegerLiteral(isize),
     BooleanLiteral(bool),
+    If {
+        condition: Box<Expression>,
+        consequence: Box<Statement>,
+        alternative: Option<Box<Statement>>,
+    },
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
 }
@@ -73,6 +86,18 @@ impl Display for Expression {
             Expression::Prefix(operator, right) => write!(f, "({}{})", operator, right),
             Expression::Infix(operator, left, right) => {
                 write!(f, "({} {} {})", left, operator, right)
+            }
+            Expression::If {
+                condition,
+                consequence,
+                alternative,
+            } => {
+                let mut result = String::new();
+                result.push_str(&format!("if {} {}", condition, consequence));
+                if let Some(alternative) = alternative {
+                    result.push_str(&format!("else {}", alternative));
+                }
+                write!(f, "{}", result)
             }
         }
     }

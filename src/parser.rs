@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
             Token::LPAREN => Some(Parser::parse_grouped_expression),
+            Token::IF => Some(Parser::parse_if_expression),
             Token::TRUE | Token::FALSE => Some(Parser::parse_boolean_literal),
             Token::BANG | Token::MINUS => Some(Parser::parse_prefix),
             _ => None,
@@ -110,6 +111,19 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
         Some(Statement::ReturnStatement(None))
+    }
+
+    fn parse_block_statement(&mut self) -> Option<Statement> {
+        self.next_token();
+        let mut statements = Vec::new();
+
+        while !self.current_token_is(&Token::RBRACE) && !self.current_token_is(&Token::EOF) {
+            if let Some(statement) = self.parse_statement() {
+                statements.push(statement);
+            }
+            self.next_token();
+        }
+        Some(Statement::BlockStatement(statements))
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {
@@ -193,6 +207,50 @@ impl<'a> Parser<'a> {
             return None;
         }
         expression
+    }
+
+    fn parse_if_expression(p: &mut Parser) -> Option<Expression> {
+        if !p.expect_peek(&Token::LPAREN) {
+            return None;
+        }
+
+        p.next_token();
+        let condition = match p.parse_expression(Precedence::LOWEST) {
+            Some(condition) => condition,
+            None => return None,
+        };
+
+        if !p.expect_peek(&Token::RPAREN) {
+            return None;
+        }
+
+        if !p.expect_peek(&Token::LBRACE) {
+            return None;
+        }
+
+        let consequence = match p.parse_block_statement() {
+            Some(consequence) => consequence,
+            None => return None,
+        };
+
+        let alternative = if p.peek_token_is(&Token::ELSE) {
+            p.next_token();
+            if !p.expect_peek(&Token::LBRACE) {
+                return None;
+            }
+            match p.parse_block_statement() {
+                Some(alternative) => Some(alternative),
+                None => return None,
+            }
+        } else {
+            None
+        };
+
+        Some(Expression::If {
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative: alternative.map(Box::new),
+        })
     }
 
     fn parse_prefix(p: &mut Parser) -> Option<Expression> {
@@ -402,6 +460,60 @@ return 993322;"#;
                     }
                     _ => panic!("Expected ExpressionStatement, got {:?}", statement),
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        // assert_eq!(program.statements.len(), 1);
+        assert_eq!(parser.errors.len(), 0);
+
+        for statement in program.statements {
+            match statement {
+                Statement::ExpressionStatement(Expression::If {
+                    condition,
+                    consequence,
+                    alternative,
+                }) => {
+                    assert_eq!(condition.to_string(), "(x < y)");
+                    assert_eq!(consequence.to_string(), "x");
+                    assert_eq!(alternative, None);
+                }
+                _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+            }
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        // assert_eq!(program.statements.len(), 1);
+        assert_eq!(parser.errors.len(), 0);
+
+        for statement in program.statements {
+            match statement {
+                Statement::ExpressionStatement(Expression::If {
+                    condition,
+                    consequence,
+                    alternative,
+                }) => {
+                    assert_eq!(condition.to_string(), "(x < y)");
+                    assert_eq!(consequence.to_string(), "x");
+                    assert_eq!(alternative.unwrap().to_string(), "y");
+                }
+                _ => panic!("Expected ExpressionStatement, got {:?}", statement),
             }
         }
     }
