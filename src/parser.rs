@@ -79,6 +79,7 @@ impl<'a> Parser<'a> {
             | Token::NOT_EQ
             | Token::LT
             | Token::GT => Some(Parser::parse_infix),
+            Token::LPAREN => Some(Parser::parse_call_expression),
             _ => None,
         }
     }
@@ -358,6 +359,7 @@ impl<'a> Parser<'a> {
             Token::LT | Token::GT => Precedence::LESSGREATER,
             Token::PLUS | Token::MINUS => Precedence::SUM,
             Token::ASTERISK | Token::SLASH => Precedence::PRODUCT,
+            Token::LPAREN => Precedence::CALL,
             _ => Precedence::LOWEST,
         }
     }
@@ -368,8 +370,56 @@ impl<'a> Parser<'a> {
             Token::LT | Token::GT => Precedence::LESSGREATER,
             Token::PLUS | Token::MINUS => Precedence::SUM,
             Token::ASTERISK | Token::SLASH => Precedence::PRODUCT,
+            Token::LPAREN => Precedence::CALL,
             _ => Precedence::LOWEST,
         }
+    }
+
+    fn parse_call_expression(p: &mut Parser, function: Expression) -> Option<Expression> {
+        let arguments = match p.parse_call_arguments() {
+            Some(arguments) => arguments,
+            _ => return None,
+        };
+
+        Some(Expression::Call {
+            function: Box::new(function),
+            arguments,
+        })
+    }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
+        let mut arguments = vec![];
+
+        // no arguments
+        if self.peek_token_is(&Token::RPAREN) {
+            self.next_token();
+            return Some(arguments);
+        }
+
+        // first argument
+        self.next_token();
+        if let Some(argument) = self.parse_expression(Precedence::LOWEST) {
+            arguments.push(argument);
+        } else {
+            return None;
+        }
+
+        // optional additional arguments
+        while self.peek_token_is(&Token::COMMA) {
+            self.next_token();
+            self.next_token();
+            if let Some(argument) = self.parse_expression(Precedence::LOWEST) {
+                arguments.push(argument);
+            } else {
+                return None;
+            }
+        }
+
+        if !self.expect_peek(&Token::RPAREN) {
+            return None;
+        }
+
+        Some(arguments)
     }
 
     fn current_token_is(&self, token: &Token) -> bool {
@@ -693,6 +743,37 @@ return 993322;"#;
     }
 
     #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(program.statements.len(), 1);
+        assert_eq!(parser.errors.len(), 0);
+
+        for statement in &program.statements {
+            match statement {
+                Statement::ExpressionStatement(exp) => match exp {
+                    Expression::Call {
+                        function,
+                        arguments,
+                    } => {
+                        assert_eq!(function.to_string(), "add");
+                        assert_eq!(arguments.len(), 3);
+                        assert_eq!(arguments[0].to_string(), "1");
+                        assert_eq!(arguments[1].to_string(), "(2 * 3)");
+                        assert_eq!(arguments[2].to_string(), "(4 + 5)");
+                    }
+                    _ => panic!("Expected CallExpression, got {:?}", exp),
+                },
+                _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+            }
+        }
+    }
+
+    #[test]
     fn test_integer_infix_expression() {
         let tests = vec![
             ("5 + 4;", 5, "+", 4),
@@ -785,6 +866,15 @@ return 993322;"#;
             ("2 / (5 + 5)", "(2 / (5 + 5))"),
             ("-(5 + 5)", "(-(5 + 5))"),
             ("!(true == true)", "(!(true == true))"),
+            ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
 
         for test in tests {

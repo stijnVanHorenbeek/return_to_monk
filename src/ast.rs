@@ -77,6 +77,10 @@ pub enum Expression {
         parameters: Vec<String>,
         body: Box<Statement>,
     },
+    Call {
+        function: Box<Expression>,
+        arguments: Vec<Expression>,
+    },
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
 }
@@ -114,6 +118,23 @@ impl Display for Expression {
                     }
                 }
                 result.push_str(&format!(") {}", body));
+                write!(f, "{}", result)
+            }
+            Expression::Call {
+                function,
+                arguments,
+            } => {
+                let mut result = String::new();
+                result.push_str(&format!("{}", function));
+                result.push_str("(");
+                for (i, argument) in arguments.iter().enumerate() {
+                    if i == 0 {
+                        result.push_str(&format!("{}", argument));
+                    } else {
+                        result.push_str(&format!(", {}", argument));
+                    }
+                }
+                result.push_str(")");
                 write!(f, "{}", result)
             }
         }
