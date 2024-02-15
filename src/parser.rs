@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::token::Token;
@@ -8,7 +6,7 @@ pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token,
     peek_token: Token,
-    errors: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 type PrefixParseFn = fn(p: &mut Parser) -> Option<Expression>;
