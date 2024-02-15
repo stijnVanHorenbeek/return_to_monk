@@ -25,11 +25,8 @@ impl Display for Program {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Statement {
-    LetStatement {
-        name: String,
-        value: Option<Expression>,
-    },
-    ReturnStatement(Option<Expression>),
+    LetStatement { name: String, value: Expression },
+    ReturnStatement(Expression),
     BlockStatement(Vec<Statement>),
     ExpressionStatement(Expression),
 }
@@ -38,18 +35,10 @@ impl Display for Statement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Statement::LetStatement { name, value } => {
-                if let Some(value) = value {
-                    write!(f, "let {} = {};", name, value)
-                } else {
-                    write!(f, "let {};", name)
-                }
+                write!(f, "let {} = {};", name, value)
             }
             Statement::ReturnStatement(value) => {
-                if let Some(value) = value {
-                    write!(f, "return {};", value)
-                } else {
-                    write!(f, "return;")
-                }
+                write!(f, "return {};", value)
             }
             Statement::BlockStatement(statements) => {
                 let mut result = String::new();

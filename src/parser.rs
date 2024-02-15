@@ -101,18 +101,33 @@ impl<'a> Parser<'a> {
         if !self.expect_peek(&Token::ASSIGN) {
             return None;
         }
-        while !self.current_token_is(&Token::SEMICOLON) {
+
+        self.next_token();
+        let value = match self.parse_expression(Precedence::LOWEST) {
+            Some(value) => value,
+            None => return None,
+        };
+
+        if self.peek_token_is(&Token::SEMICOLON) {
             self.next_token();
         }
-        Some(Statement::LetStatement { name, value: None })
+
+        Some(Statement::LetStatement { name, value })
     }
 
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.next_token();
-        while !self.current_token_is(&Token::SEMICOLON) {
+
+        let value = match self.parse_expression(Precedence::LOWEST) {
+            Some(value) => value,
+            None => return None,
+        };
+
+        if self.peek_token_is(&Token::SEMICOLON) {
             self.next_token();
         }
-        Some(Statement::ReturnStatement(None))
+
+        Some(Statement::ReturnStatement(value))
     }
 
     fn parse_block_statement(&mut self) -> Option<Statement> {
@@ -460,28 +475,25 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = r#"
-let x = 5;
-let y = 10;
-let foobar = 838383;
-"#;
+        let tests = vec![("let x = 5;", "x", 5), ("let y = 420;", "y", 420)];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for test in tests {
+            let (input, name, value) = test;
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(program.statements.len(), 3);
-        assert_eq!(parser.errors.len(), 0);
+            assert_eq!(program.statements.len(), 1);
+            assert_eq!(parser.errors.len(), 0);
 
-        let tests = vec!["x", "y", "foobar"];
-
-        for (i, test) in tests.iter().enumerate() {
-            let statement = &program.statements[i];
-            match statement {
-                Statement::LetStatement { name, value: _ } => {
-                    assert_eq!(name, *test);
+            for statement in program.statements {
+                match statement {
+                    Statement::LetStatement { name: n, value: v } => {
+                        assert_eq!(n, name);
+                        assert_eq!(v.to_string(), value.to_string());
+                    }
+                    _ => panic!("Expected LetStatement, got {:?}", statement),
                 }
-                _ => panic!("Expected LetStatement, got {:?}", statement),
             }
         }
     }
