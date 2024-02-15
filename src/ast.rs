@@ -73,6 +73,10 @@ pub enum Expression {
         consequence: Box<Statement>,
         alternative: Option<Box<Statement>>,
     },
+    FunctionLiteral {
+        parameters: Vec<String>,
+        body: Box<Statement>,
+    },
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
 }
@@ -97,6 +101,19 @@ impl Display for Expression {
                 if let Some(alternative) = alternative {
                     result.push_str(&format!("else {}", alternative));
                 }
+                write!(f, "{}", result)
+            }
+            Expression::FunctionLiteral { parameters, body } => {
+                let mut result = String::new();
+                result.push_str("fn(");
+                for (i, parameter) in parameters.iter().enumerate() {
+                    if i == 0 {
+                        result.push_str(&format!("{}", parameter));
+                    } else {
+                        result.push_str(&format!(", {}", parameter));
+                    }
+                }
+                result.push_str(&format!(") {}", body));
                 write!(f, "{}", result)
             }
         }

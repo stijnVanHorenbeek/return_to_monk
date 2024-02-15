@@ -60,6 +60,7 @@ impl<'a> Parser<'a> {
             Token::INT(_) => Some(Parser::parse_integer_literal),
             Token::LPAREN => Some(Parser::parse_grouped_expression),
             Token::IF => Some(Parser::parse_if_expression),
+            Token::FUNCTION => Some(Parser::parse_function_literal),
             Token::TRUE | Token::FALSE => Some(Parser::parse_boolean_literal),
             Token::BANG | Token::MINUS => Some(Parser::parse_prefix),
             _ => None,
@@ -251,6 +252,64 @@ impl<'a> Parser<'a> {
             consequence: Box::new(consequence),
             alternative: alternative.map(Box::new),
         })
+    }
+
+    fn parse_function_literal(p: &mut Parser) -> Option<Expression> {
+        if !p.expect_peek(&Token::LPAREN) {
+            return None;
+        }
+
+        let parameters = match p.parse_function_parameters() {
+            Some(parameters) => parameters,
+            _ => return None,
+        };
+
+        if !p.expect_peek(&Token::LBRACE) {
+            return None;
+        }
+
+        let body = match p.parse_block_statement() {
+            Some(body) => body,
+            _ => return None,
+        };
+
+        Some(Expression::FunctionLiteral {
+            parameters,
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<String>> {
+        let mut identifiers = vec![];
+
+        // no function parameters
+        if self.peek_token_is(&Token::RPAREN) {
+            self.next_token();
+            return Some(identifiers);
+        }
+
+        self.next_token();
+        // first parameter
+        identifiers.push(match &self.current_token {
+            Token::IDENT(s) => s.clone(),
+            _ => return None,
+        });
+
+        // optional additional parameters
+        while self.peek_token_is(&Token::COMMA) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(match &self.current_token {
+                Token::IDENT(s) => s.clone(),
+                _ => return None,
+            });
+        }
+
+        if !self.expect_peek(&Token::RPAREN) {
+            return None;
+        }
+
+        Some(identifiers)
     }
 
     fn parse_prefix(p: &mut Parser) -> Option<Expression> {
@@ -499,7 +558,7 @@ return 993322;"#;
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
-        // assert_eq!(program.statements.len(), 1);
+        assert_eq!(program.statements.len(), 1);
         assert_eq!(parser.errors.len(), 0);
 
         for statement in program.statements {
@@ -514,6 +573,64 @@ return 993322;"#;
                     assert_eq!(alternative.unwrap().to_string(), "y");
                 }
                 _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+            }
+        }
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y; }";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(program.statements.len(), 1);
+        assert_eq!(parser.errors.len(), 0);
+
+        for statement in program.statements {
+            match statement {
+                Statement::ExpressionStatement(Expression::FunctionLiteral {
+                    parameters,
+                    body,
+                }) => {
+                    assert_eq!(parameters.len(), 2);
+                    assert_eq!(parameters[0], "x");
+                    assert_eq!(parameters[1], "y");
+                    assert_eq!(body.to_string(), "(x + y)");
+                }
+                _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+            }
+        }
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        let tests = vec![
+            ("fn() {};", vec![]),
+            ("fn(x) {};", vec!["x"]),
+            ("fn(x, y, z) {};", vec!["x", "y", "z"]),
+        ];
+
+        for test in tests {
+            let (input, expected) = test;
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert_eq!(program.statements.len(), 1);
+            assert_eq!(parser.errors.len(), 0);
+
+            for statement in program.statements {
+                match statement {
+                    Statement::ExpressionStatement(Expression::FunctionLiteral {
+                        parameters,
+                        body: _,
+                    }) => {
+                        assert_eq!(parameters, expected);
+                    }
+                    _ => panic!("Expected ExpressionStatement, got {:?}", statement),
+                }
             }
         }
     }
