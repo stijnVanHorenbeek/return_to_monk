@@ -1,5 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
+use crate::evaluator::*;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
@@ -20,7 +21,12 @@ pub fn start_repl() {
                         println!("{}", error);
                     }
                 }
-                println!("{}", program.to_string());
+
+                let evaluated = eval(program);
+                match evaluated {
+                    Ok(obj) => println!("{}", obj),
+                    Err(error) => println!("error: {}", error),
+                }
             }
             Err(error) => println!("error: {}", error),
         }
