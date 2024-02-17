@@ -31,8 +31,24 @@ fn eval_statements(statements: &[Statement]) -> Result<Object, anyhow::Error> {
     for statement in statements {
         result = eval_statement(statement)?;
 
-        if let Object::ReturnValue(_) = result {
-            return Ok(result);
+        match result {
+            Object::ReturnValue(obj) => return Ok(*obj),
+            _ => {}
+        }
+    }
+
+    Ok(result)
+}
+
+fn eval_block_statement(statements: &[Statement]) -> Result<Object, anyhow::Error> {
+    let mut result = Object::Null;
+
+    for statement in statements {
+        result = eval_statement(statement)?;
+
+        match result {
+            Object::ReturnValue(_) => return Ok(result),
+            _ => {}
         }
     }
 
@@ -46,7 +62,7 @@ fn eval_statement(statement: &Statement) -> Result<Object, anyhow::Error> {
             obj
         }
         Statement::ExpressionStatement(expression) => eval_expression(expression),
-        Statement::BlockStatement(statements) => eval_statements(statements),
+        Statement::BlockStatement(statements) => eval_block_statement(statements),
         Statement::ReturnStatement(value) => {
             let obj = eval_expression(value)?;
             println!("returning: {}", obj);
@@ -249,6 +265,15 @@ mod tests {
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
             ("9; return 2 * 5; 9;", 10),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) {
+                        return 10;
+                    }
+                    return 1;
+                }",
+                10,
+            ),
         ];
 
         for (input, expected) in tests {
@@ -270,7 +295,6 @@ mod tests {
             Object::Integer(value) => {
                 assert_eq!(value, expected);
             }
-            Object::ReturnValue(value) => test_integer_object(*value, expected),
             _ => test_null_object(obj),
         }
     }
