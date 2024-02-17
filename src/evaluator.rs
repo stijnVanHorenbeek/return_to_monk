@@ -53,6 +53,12 @@ fn eval_expression(expression: &Expression) -> Result<Object, anyhow::Error> {
             let right = eval_expression(right)?;
             eval_prefix_expression(&operator.to_string(), right)
         }
+        Expression::Infix(operator, left, right) => {
+            let left = eval_expression(&left)?;
+            let right = eval_expression(&right)?;
+            return eval_infix_expression(&operator.to_string(), left, right);
+        }
+
         _ => Err(Error::msg("not implemented")),
     }
 }
@@ -80,6 +86,37 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Result<Object, anyhow
     }
 }
 
+fn eval_infix_expression(
+    operator: &str,
+    left: Object,
+    right: Object,
+) -> Result<Object, anyhow::Error> {
+    match (left, right) {
+        (Object::Integer(left), Object::Integer(right)) => {
+            eval_integer_infix_expression(operator, left, right)
+        }
+        _ => Ok(Object::Null),
+    }
+}
+
+fn eval_integer_infix_expression(
+    operator: &str,
+    left: isize,
+    right: isize,
+) -> Result<Object, anyhow::Error> {
+    match operator {
+        "+" => Ok(Object::Integer(left + right)),
+        "-" => Ok(Object::Integer(left - right)),
+        "*" => Ok(Object::Integer(left * right)),
+        "/" => Ok(Object::Integer(left / right)),
+        "<" => Ok(Object::Boolean(left < right)),
+        ">" => Ok(Object::Boolean(left > right)),
+        "==" => Ok(Object::Boolean(left == right)),
+        "!=" => Ok(Object::Boolean(left != right)),
+        _ => Ok(Object::Null),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,7 +125,23 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
+        let tests = vec![
+            ("5", 5),
+            ("10", 10),
+            ("-5", -5),
+            ("-10", -10),
+            ("5 + 5 + 5 + 5 - 10", 10),
+            ("2 * 2 * 2 * 2 * 2", 32),
+            ("-50 + 100 + -50", 0),
+            ("5 * 2 + 10", 20),
+            ("5 + 2 * 10", 25),
+            ("20 + 2 * -10", 0),
+            ("50 / 2 * 2 + 10", 60),
+            ("2 * (5 + 10)", 30),
+            ("3 * 3 * 3 + 10", 37),
+            ("3 * (3 * 3) + 10", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+        ];
 
         for (input, expected) in tests {
             let evaluated = test_eval(input);
