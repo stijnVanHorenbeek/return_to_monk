@@ -4,6 +4,7 @@ use crate::ast::*;
 use anyhow::{Error, Result};
 use std::fmt::Display;
 
+#[derive(Debug, PartialEq)]
 pub enum Object {
     Integer(isize),
     Boolean(bool),
@@ -51,23 +52,21 @@ fn eval_expression(expression: &Expression) -> Result<Object, anyhow::Error> {
         Expression::BooleanLiteral(value) => Ok(Object::Boolean(*value)),
         Expression::Prefix(operator, right) => {
             let right = eval_expression(right)?;
-            eval_prefix_expression(&operator.to_string(), right)
+            eval_prefix_expression(&operator, right)
         }
         Expression::Infix(operator, left, right) => {
             let left = eval_expression(&left)?;
             let right = eval_expression(&right)?;
-            return eval_infix_expression(&operator.to_string(), left, right);
+            eval_infix_expression(&operator, left, right)
         }
-
         _ => Err(Error::msg("not implemented")),
     }
 }
 
-fn eval_prefix_expression(operator: &str, right: Object) -> Result<Object, anyhow::Error> {
+fn eval_prefix_expression(operator: &Prefix, right: Object) -> Result<Object, anyhow::Error> {
     match operator {
-        "!" => eval_bang_operator_expression(right),
-        "-" => eval_minus_prefix_operator_expression(right),
-        _ => Err(Error::msg("unknown operator")),
+        Prefix::BANG => eval_bang_operator_expression(right),
+        Prefix::MINUS => eval_minus_prefix_operator_expression(right),
     }
 }
 
@@ -87,33 +86,34 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Result<Object, anyhow
 }
 
 fn eval_infix_expression(
-    operator: &str,
+    operator: &Infix,
     left: Object,
     right: Object,
 ) -> Result<Object, anyhow::Error> {
-    match (left, right) {
-        (Object::Integer(left), Object::Integer(right)) => {
+    match (operator, left, right) {
+        (_, Object::Integer(left), Object::Integer(right)) => {
             eval_integer_infix_expression(operator, left, right)
         }
+        (Infix::EQ, left, right) => Ok(Object::Boolean(left == right)),
+        (Infix::NOT_EQ, left, right) => Ok(Object::Boolean(left != right)),
         _ => Ok(Object::Null),
     }
 }
 
 fn eval_integer_infix_expression(
-    operator: &str,
+    operator: &Infix,
     left: isize,
     right: isize,
 ) -> Result<Object, anyhow::Error> {
     match operator {
-        "+" => Ok(Object::Integer(left + right)),
-        "-" => Ok(Object::Integer(left - right)),
-        "*" => Ok(Object::Integer(left * right)),
-        "/" => Ok(Object::Integer(left / right)),
-        "<" => Ok(Object::Boolean(left < right)),
-        ">" => Ok(Object::Boolean(left > right)),
-        "==" => Ok(Object::Boolean(left == right)),
-        "!=" => Ok(Object::Boolean(left != right)),
-        _ => Ok(Object::Null),
+        Infix::PLUS => Ok(Object::Integer(left + right)),
+        Infix::MINUS => Ok(Object::Integer(left - right)),
+        Infix::ASTERISK => Ok(Object::Integer(left * right)),
+        Infix::SLASH => Ok(Object::Integer(left / right)),
+        Infix::LT => Ok(Object::Boolean(left < right)),
+        Infix::GT => Ok(Object::Boolean(left > right)),
+        Infix::EQ => Ok(Object::Boolean(left == right)),
+        Infix::NOT_EQ => Ok(Object::Boolean(left != right)),
     }
 }
 
@@ -151,7 +151,27 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = vec![("true", true), ("false", false)];
+        let tests = vec![
+            ("true", true),
+            ("false", false),
+            ("1 < 2", true),
+            ("1 > 2", false),
+            ("1 < 1", false),
+            ("1 > 1", false),
+            ("1 == 1", true),
+            ("1 != 1", false),
+            ("1 == 2", false),
+            ("1 != 2", true),
+            ("true == true", true),
+            ("false == false", true),
+            ("true == false", false),
+            ("true != false", true),
+            ("false != true", true),
+            ("(1 < 2) == true", true),
+            ("(1 < 2) == false", false),
+            ("(1 > 2) == true", false),
+            ("(1 > 2) == false", true),
+        ];
 
         for (input, expected) in tests {
             let evaluated = test_eval(input);
