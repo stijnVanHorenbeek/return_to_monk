@@ -82,3 +82,4 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 
 - Inspiration from ["Writing An Interpreter In Go" by Thorsten Ball](https://interpreterbook.com). (10/10 book)
 - [Top Down Operator Precedence (PRATT parsing)](https://tdop.github.io/)
+- [Jonathan Blow & Casey Muratori discussion about operator precedence](https://www.youtube.com/watch?v=fIPO4G42wYE)
