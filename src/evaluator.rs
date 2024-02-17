@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::ast::*;
 use anyhow::{Error, Result};
 use std::fmt::Display;
@@ -42,6 +40,7 @@ fn eval_statement(statement: &Statement) -> Result<Object, anyhow::Error> {
             obj
         }
         Statement::ExpressionStatement(expression) => eval_expression(expression),
+        Statement::BlockStatement(statements) => eval_statements(statements),
         _ => Err(Error::msg("not implemented")),
     }
 }
@@ -58,6 +57,20 @@ fn eval_expression(expression: &Expression) -> Result<Object, anyhow::Error> {
             let left = eval_expression(&left)?;
             let right = eval_expression(&right)?;
             eval_infix_expression(&operator, &left, &right)
+        }
+        Expression::If {
+            condition,
+            consequence,
+            alternative,
+        } => {
+            let condition = eval_expression(&condition)?;
+            if is_truthy(&condition) {
+                eval_statement(&consequence)
+            } else if let Some(alternative) = alternative {
+                eval_statement(&alternative)
+            } else {
+                Ok(Object::Null)
+            }
         }
         _ => Err(Error::msg("not implemented")),
     }
@@ -114,6 +127,14 @@ fn eval_integer_infix_expression(
         Infix::GT => Ok(Object::Boolean(left > right)),
         Infix::EQ => Ok(Object::Boolean(left == right)),
         Infix::NOT_EQ => Ok(Object::Boolean(left != right)),
+    }
+}
+
+fn is_truthy(obj: &Object) -> bool {
+    match obj {
+        Object::Null => false,
+        Object::Boolean(value) => *value,
+        _ => true,
     }
 }
 
@@ -194,6 +215,23 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_if_else_expressions() {
+        let tests = vec![
+            ("if (true) { 10 }", 10),
+            ("if (false) { 10 }", 0),
+            ("if (1) { 10 }", 10),
+            ("if (1 < 2) { 10 }", 10),
+            ("if (1 > 2) { 10 } else { 20 }", 20),
+            ("if (1 < 2) { 10 } else { 20 }", 10),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input);
+            test_integer_object(evaluated, expected);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -207,9 +245,7 @@ mod tests {
             Object::Integer(value) => {
                 assert_eq!(value, expected);
             }
-            _ => {
-                panic!("Object is not Integer. got={}", obj);
-            }
+            _ => test_null_object(obj),
         }
     }
 
@@ -220,6 +256,15 @@ mod tests {
             }
             _ => {
                 panic!("Object is not Boolean. got={}", obj);
+            }
+        }
+    }
+
+    fn test_null_object(obj: Object) {
+        match obj {
+            Object::Null => {}
+            _ => {
+                panic!("Object is not Null. got={}", obj);
             }
         }
     }
