@@ -1,6 +1,6 @@
 # Building an interpreted language in Rust
 
-This project is an implementation of an interpreted language, based on the one built in 'Writing an interpreter in Go', but recreated here using Rust.
+This project is an implementation of a toy programming language with an interpreter
 
 ## Features
 
