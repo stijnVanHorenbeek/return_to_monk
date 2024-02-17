@@ -6,6 +6,7 @@ use std::fmt::Display;
 pub enum Object {
     Integer(isize),
     Boolean(bool),
+    ReturnValue(Box<Object>),
     Null,
 }
 
@@ -14,6 +15,7 @@ impl Display for Object {
         match self {
             Object::Integer(value) => write!(f, "{}", value),
             Object::Boolean(value) => write!(f, "{}", value),
+            Object::ReturnValue(value) => write!(f, "{}", value),
             Object::Null => write!(f, "null"),
         }
     }
@@ -28,6 +30,10 @@ fn eval_statements(statements: &[Statement]) -> Result<Object, anyhow::Error> {
 
     for statement in statements {
         result = eval_statement(statement)?;
+
+        if let Object::ReturnValue(_) = result {
+            return Ok(result);
+        }
     }
 
     Ok(result)
@@ -41,7 +47,11 @@ fn eval_statement(statement: &Statement) -> Result<Object, anyhow::Error> {
         }
         Statement::ExpressionStatement(expression) => eval_expression(expression),
         Statement::BlockStatement(statements) => eval_statements(statements),
-        _ => Err(Error::msg("not implemented")),
+        Statement::ReturnStatement(value) => {
+            let obj = eval_expression(value)?;
+            println!("returning: {}", obj);
+            Ok(Object::ReturnValue(Box::new(obj)))
+        }
     }
 }
 
@@ -232,6 +242,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_return_statements() {
+        let tests = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input);
+            test_integer_object(evaluated, expected);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -245,6 +270,7 @@ mod tests {
             Object::Integer(value) => {
                 assert_eq!(value, expected);
             }
+            Object::ReturnValue(value) => test_integer_object(*value, expected),
             _ => test_null_object(obj),
         }
     }
