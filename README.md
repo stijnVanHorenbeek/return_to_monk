@@ -81,3 +81,4 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 ## Acknowledgments
 
 - Inspiration from ["Writing An Interpreter In Go" by Thorsten Ball](https://interpreterbook.com). (10/10 book)
+- [Top Down Operator Precedence (PRATT parsing)](https://tdop.github.io/)
