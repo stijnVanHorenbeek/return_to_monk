@@ -57,7 +57,7 @@ fn eval_expression(expression: &Expression) -> Result<Object, anyhow::Error> {
         Expression::Infix(operator, left, right) => {
             let left = eval_expression(&left)?;
             let right = eval_expression(&right)?;
-            eval_infix_expression(&operator, left, right)
+            eval_infix_expression(&operator, &left, &right)
         }
         _ => Err(Error::msg("not implemented")),
     }
@@ -87,12 +87,12 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Result<Object, anyhow
 
 fn eval_infix_expression(
     operator: &Infix,
-    left: Object,
-    right: Object,
+    left: &Object,
+    right: &Object,
 ) -> Result<Object, anyhow::Error> {
     match (operator, left, right) {
         (_, Object::Integer(left), Object::Integer(right)) => {
-            eval_integer_infix_expression(operator, left, right)
+            eval_integer_infix_expression(operator, *left, *right)
         }
         (Infix::EQ, left, right) => Ok(Object::Boolean(left == right)),
         (Infix::NOT_EQ, left, right) => Ok(Object::Boolean(left != right)),
