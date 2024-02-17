@@ -7,7 +7,7 @@ This project is an implementation of a toy programming language with an interpre
 - [x] **Lexer**: Tokenizes input to prepare for parsing.
 - [x] **Parser**: Analyzes the structure of the code to build an Abstract Syntax Tree (AST).
 - [ ] **Evaluator**: Processes the AST to execute the program.
-- [ ] **REPL**: A Read-Eval-Print Loop for interactive use.
+- [x] **REPL**: A Read-Eval-Print Loop for interactive use.
 
 ## Getting Started
 
