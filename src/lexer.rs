@@ -75,12 +75,12 @@ impl<'a> Lexer<'a> {
                 if is_letter(self.ch) {
                     let ident = self.read_identifier();
                     return lookup_ident(&ident);
-                } else if is_digit(self.ch) {
+                }
+                if is_digit(self.ch) {
                     let digit = self.read_digit();
                     return Token::INT(digit);
-                } else {
-                    Token::ILLEGAL
                 }
+                Token::ILLEGAL
             }
         };
         self.read_char();

@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     ILLEGAL,
