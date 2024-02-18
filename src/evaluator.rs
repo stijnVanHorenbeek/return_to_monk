@@ -1,5 +1,5 @@
 use crate::ast::*;
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
@@ -8,6 +8,25 @@ pub enum Object {
     Boolean(bool),
     ReturnValue(Box<Object>),
     Null,
+}
+
+impl Object {
+    fn is_truthy(&self) -> bool {
+        match self {
+            Object::Null => false,
+            Object::Boolean(value) => *value,
+            _ => true,
+        }
+    }
+
+    fn type_of(&self) -> &str {
+        match self {
+            Object::Integer(_) => "INTEGER",
+            Object::Boolean(_) => "BOOLEAN",
+            Object::ReturnValue(value) => value.type_of(),
+            Object::Null => "NULL",
+        }
+    }
 }
 
 impl Display for Object {
@@ -65,7 +84,6 @@ fn eval_statement(statement: &Statement) -> Result<Object, anyhow::Error> {
         Statement::BlockStatement(statements) => eval_block_statement(statements),
         Statement::ReturnStatement(value) => {
             let obj = eval_expression(value)?;
-            println!("returning: {}", obj);
             Ok(Object::ReturnValue(Box::new(obj)))
         }
     }
@@ -90,7 +108,7 @@ fn eval_expression(expression: &Expression) -> Result<Object, anyhow::Error> {
             alternative,
         } => {
             let condition = eval_expression(&condition)?;
-            if is_truthy(&condition) {
+            if condition.is_truthy() {
                 eval_statement(&consequence)
             } else if let Some(alternative) = alternative {
                 eval_statement(&alternative)
@@ -120,7 +138,7 @@ fn eval_bang_operator_expression(right: Object) -> Result<Object, anyhow::Error>
 fn eval_minus_prefix_operator_expression(right: Object) -> Result<Object, anyhow::Error> {
     match right {
         Object::Integer(value) => Ok(Object::Integer(-value)),
-        _ => Ok(Object::Null),
+        _ => Err(anyhow!("unknown operator: -{}", right.type_of())),
     }
 }
 
@@ -129,13 +147,27 @@ fn eval_infix_expression(
     left: &Object,
     right: &Object,
 ) -> Result<Object, anyhow::Error> {
+    if left.type_of() != right.type_of() {
+        return Err(anyhow!(
+            "type mismatch: {} {} {}",
+            left.type_of(),
+            operator,
+            right.type_of()
+        ));
+    }
+
     match (operator, left, right) {
         (_, Object::Integer(left), Object::Integer(right)) => {
             eval_integer_infix_expression(operator, *left, *right)
         }
         (Infix::EQ, left, right) => Ok(Object::Boolean(left == right)),
         (Infix::NOT_EQ, left, right) => Ok(Object::Boolean(left != right)),
-        _ => Ok(Object::Null),
+        _ => Err(anyhow!(
+            "unknown operator: {} {} {}",
+            left.type_of(),
+            operator,
+            right.type_of()
+        )),
     }
 }
 
@@ -153,14 +185,6 @@ fn eval_integer_infix_expression(
         Infix::GT => Ok(Object::Boolean(left > right)),
         Infix::EQ => Ok(Object::Boolean(left == right)),
         Infix::NOT_EQ => Ok(Object::Boolean(left != right)),
-    }
-}
-
-fn is_truthy(obj: &Object) -> bool {
-    match obj {
-        Object::Null => false,
-        Object::Boolean(value) => *value,
-        _ => true,
     }
 }
 
@@ -191,7 +215,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let evaluated = test_eval(input);
+            let evaluated = test_eval(input).unwrap();
             test_integer_object(evaluated, expected);
         }
     }
@@ -221,7 +245,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let evaluated = test_eval(input);
+            let evaluated = test_eval(input).unwrap();
             test_boolean_object(evaluated, expected);
         }
     }
@@ -236,7 +260,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let evaluated = test_eval(input);
+            let evaluated = test_eval(input).unwrap();
             test_boolean_object(evaluated, expected);
         }
     }
@@ -253,7 +277,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let evaluated = test_eval(input);
+            let evaluated = test_eval(input).unwrap();
             test_integer_object(evaluated, expected);
         }
     }
@@ -277,17 +301,57 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let evaluated = test_eval(input);
+            let evaluated = test_eval(input).unwrap();
             test_integer_object(evaluated, expected);
         }
     }
 
-    fn test_eval(input: &str) -> Object {
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+            ("-true", "unknown operator: -BOOLEAN"),
+            ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+            ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "if (10 > 1) { true + false; }",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                r#"
+                if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }
+                "#,
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+        ];
+
+        for (input, expected_message) in tests {
+            let evaluated = test_eval(input);
+
+            match evaluated {
+                Err(err) => {
+                    println!("{}", err);
+                    assert_eq!(err.to_string(), expected_message);
+                }
+                Ok(_) => {
+                    panic!("no error object returned. got={}", evaluated.unwrap());
+                }
+            }
+        }
+    }
+
+    fn test_eval(input: &str) -> Result<Object, anyhow::Error> {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
-        eval(program).unwrap()
+        eval(program)
     }
 
     fn test_integer_object(obj: Object, expected: isize) {
