@@ -6,6 +6,7 @@ use crate::parser::Parser;
 
 pub fn start_repl() {
     println!("Return to Monk REPL (Ctrl+C to exit)");
+    let mut env = Environment::new();
     loop {
         print!(">> ");
         stdout().flush().unwrap();
@@ -22,7 +23,7 @@ pub fn start_repl() {
                     }
                 }
 
-                let evaluated = eval(program);
+                let evaluated = eval(program, &mut env);
                 match evaluated {
                     Ok(obj) => println!("{}", obj),
                     Err(error) => println!("error: {}", error),
