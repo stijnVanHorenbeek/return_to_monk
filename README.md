@@ -1,13 +1,17 @@
 # Building an interpreted language in Rust
 
-This project is an implementation of a toy programming language with an interpreter
+This project is an implementation of a toy interpreted programming language
 
 ## Features
 
 - [x] **Lexer**: Tokenizes input to prepare for parsing.
 - [x] **Parser**: Analyzes the structure of the code to build an Abstract Syntax Tree (AST).
-- [ ] **Evaluator**: Processes the AST to execute the program.
+- [x] **Evaluator**: Processes the AST to execute the program.
 - [x] **REPL**: A Read-Eval-Print Loop for interactive use.
+- [ ] **Builtin Data Structures**: add support for strings, arrays, hashmaps
+- [ ] **Builtin function**: create some builtin functions (print, len,...)
+- [ ] extend interpreter to load from .monk file
+- [ ] extend language (floats, increment, decrement, logical and/or)
 
 ## Getting Started
 
@@ -29,21 +33,16 @@ git clone https://github.com/stijnVanHorenbeek/return_to_monk.git
 cd return_to_monk
 ```
 
-3. Build the project:
+3. Run the project:
 
 ```sh
-cargo build
+cargo run
 ```
 
 ## Examples
 
 ```monkey
 // Example of language syntax
-let foo = [1, 2, 3, 4, 5];
-foo[0] // => 1
-let bar = { "name": "stijn", "location": "outer space" };
-bar["name"] // => "stijn"
-
 let five = 5;
 let ten = 10;
 let add = fn(x, y) {
