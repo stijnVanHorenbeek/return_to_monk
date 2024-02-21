@@ -46,7 +46,7 @@ impl Display for Object {
 #[derive(Debug, PartialEq)]
 pub struct Function {
     parameters: Vec<String>,
-    body: Vec<Statement>,
+    body: Statement,
     env: Environment,
 }
 
@@ -61,15 +61,13 @@ impl Display for Function {
             }
         }
         result.push_str(") {\n");
-        for statement in &self.body {
-            result.push_str(&format!("{}", statement));
-        }
+        result.push_str(&format!("{}", self.body));
         result.push_str("\n}");
         write!(f, "{}", result)
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Environment {
     store: HashMap<String, Rc<Object>>,
 }
@@ -183,6 +181,15 @@ fn eval_expression(
             Some(value) => Ok(value),
             None => Err(anyhow!("identifier not found: {}", name)),
         },
+        Expression::FunctionLiteral { parameters, body } => {
+            // TODO: Clone is not efficient
+            let func = Function {
+                parameters: parameters.clone(),
+                body: *body.clone(),
+                env: env.clone(),
+            };
+            Ok(Object::Function(func).into())
+        }
         _ => Err(Error::msg("not implemented")),
     }
 }
