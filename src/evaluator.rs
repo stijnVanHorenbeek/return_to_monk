@@ -70,17 +70,32 @@ impl Display for Function {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Environment {
     store: HashMap<String, Rc<Object>>,
+    outer: Option<Rc<Environment>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
         Environment {
             store: HashMap::new(),
+            outer: None,
+        }
+    }
+
+    pub fn new_enclosed(outer: Rc<Environment>) -> Environment {
+        Environment {
+            store: HashMap::new(),
+            outer: Some(outer),
         }
     }
 
     pub fn get(&self, name: &str) -> Option<Rc<Object>> {
-        self.store.get(name).cloned()
+        match self.store.get(name) {
+            Some(value) => Some(value.clone()),
+            None => match &self.outer {
+                Some(outer) => outer.get(name),
+                None => None,
+            },
+        }
     }
 
     pub fn set(&mut self, name: &str, value: Rc<Object>) {
@@ -190,7 +205,47 @@ fn eval_expression(
             };
             Ok(Object::Function(func).into())
         }
-        _ => Err(Error::msg("not implemented")),
+        Expression::Call {
+            function,
+            arguments,
+        } => {
+            let func = eval_expression(function, env)?;
+            let args = eval_expressions(arguments, env)?;
+            apply_function(func, args)
+        }
+    }
+}
+
+fn eval_expressions(
+    expressions: &[Expression],
+    env: &mut Environment,
+) -> Result<Vec<Rc<Object>>, anyhow::Error> {
+    let mut result = Vec::new();
+
+    for expression in expressions {
+        let evaluated = eval_expression(expression, env)?;
+        result.push(evaluated);
+    }
+
+    Ok(result)
+}
+
+fn apply_function(func: Rc<Object>, args: Vec<Rc<Object>>) -> Result<Rc<Object>, anyhow::Error> {
+    match &*func {
+        Object::Function(function) => {
+            let mut extended_env = Environment::new_enclosed(function.env.clone().into());
+
+            for (param, arg) in function.parameters.iter().zip(args) {
+                extended_env.set(param, arg);
+            }
+
+            let evaluated = eval_statement(&function.body, &mut extended_env)?;
+            match &*evaluated {
+                Object::ReturnValue(value) => Ok(value.clone()),
+                _ => Ok(evaluated),
+            }
+        }
+        _ => Err(anyhow!("not a function: {}", func)),
     }
 }
 
@@ -415,6 +470,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_closures() {
+        let input = r#"
+        let newAdder = fn(x) {
+            fn(y) { x + y };
+        };
+        let addTwo = newAdder(2);
+        addTwo(3);
+        "#;
+        let expected = 5;
+
+        let evaluated = test_eval(input).unwrap();
+        test_integer_object(evaluated, expected);
     }
 
     #[test]
