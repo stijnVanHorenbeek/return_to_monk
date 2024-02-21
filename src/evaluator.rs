@@ -7,6 +7,7 @@ pub enum Object {
     Integer(isize),
     Boolean(bool),
     ReturnValue(Rc<Object>),
+    Function(Function),
     Null,
 }
 
@@ -24,6 +25,7 @@ impl Object {
             Object::Integer(_) => "INTEGER",
             Object::Boolean(_) => "BOOLEAN",
             Object::ReturnValue(value) => value.type_of(),
+            Object::Function(_) => "FUNCTION",
             Object::Null => "NULL",
         }
     }
@@ -35,11 +37,39 @@ impl Display for Object {
             Object::Integer(value) => write!(f, "{}", value),
             Object::Boolean(value) => write!(f, "{}", value),
             Object::ReturnValue(value) => write!(f, "{}", value),
+            Object::Function(value) => write!(f, "{}", value),
             Object::Null => write!(f, "null"),
         }
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Function {
+    parameters: Vec<String>,
+    body: Vec<Statement>,
+    env: Environment,
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        result.push_str("fn(");
+        for (i, param) in self.parameters.iter().enumerate() {
+            result.push_str(param);
+            if i != self.parameters.len() - 1 {
+                result.push_str(", ");
+            }
+        }
+        result.push_str(") {\n");
+        for statement in &self.body {
+            result.push_str(&format!("{}", statement));
+        }
+        result.push_str("\n}");
+        write!(f, "{}", result)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Environment {
     store: HashMap<String, Rc<Object>>,
 }
@@ -358,6 +388,25 @@ mod tests {
         for (input, expected) in tests {
             let evaluated = test_eval(input).unwrap();
             test_integer_object(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let tests = vec![("fn(x) { x + 2; };", vec!["x"], "fn(x) {\n(x + 2)\n}")];
+
+        for (input, expected_params, expected_func) in tests {
+            let evaluated = test_eval(input).unwrap();
+
+            match &*evaluated {
+                Object::Function(function) => {
+                    assert_eq!(function.parameters, expected_params);
+                    assert_eq!(format!("{}", function), expected_func);
+                }
+                _ => {
+                    panic!("object is not Function. got={}", evaluated);
+                }
+            }
         }
     }
 
