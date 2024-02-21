@@ -1,5 +1,5 @@
 use crate::ast::*;
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 #[derive(Debug, PartialEq)]

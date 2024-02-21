@@ -21,6 +21,7 @@ pub fn start_repl() {
                     for error in parser.errors {
                         println!("{}", error);
                     }
+                    continue;
                 }
 
                 let evaluated = eval(program, &mut env);
